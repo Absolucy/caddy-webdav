@@ -20,6 +20,8 @@ package webdav
 import (
 	"context"
 	"net/http"
+	"os"
+	"path"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -112,6 +114,19 @@ func (wd WebDAV) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhtt
 			r.Method = "PROPFIND"
 			if r.Header.Get("Depth") == "" {
 				r.Header.Add("Depth", "1")
+			}
+		}
+	} else if r.Method == http.MethodPut || r.Method == http.MethodPost {
+		// Extract the directory part of the file path
+		dirPath := path.Dir(r.URL.Path)
+		// Check if the directory exists, if not create it
+		_, err := os.Stat(root + dirPath)
+		if os.IsNotExist(err) {
+			// Create all directories in the path
+			if err := os.MkdirAll(root+dirPath, 0755); err != nil {
+				wd.logger.Error("error creating directories", zap.Error(err))
+				http.Error(w, "Error creating directories", http.StatusInternalServerError)
+				return err
 			}
 		}
 	}
